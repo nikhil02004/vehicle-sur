@@ -1,0 +1,19 @@
+{
+    "name": "vehicle-detection-backend",
+    "version": "1.0.0",
+    "description": "Flask backend for vehicle detection and speed estimation",
+    "main": "app.py",
+    "scripts": {
+        "start": "python app.py",
+        "dev": "python app.py",
+        "install-deps": "pip install -r requirements_fixed.txt"
+    },
+    "keywords": [
+        "vehicle-detection",
+        "speed-estimation",
+        "yolo",
+        "flask"
+    ],
+    "author": "",
+    "license": "MIT"
+}

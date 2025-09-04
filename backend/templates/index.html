@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Detection Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 50%;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        form {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+        
+        input[type="text"], input[type="number"], input[type="file"] {
+            padding: 10px;
+            width: calc(100% - 22px);
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .result-box {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            background-color: #d1ecf1;
+            color: #0c5460;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-car"></i> Vehicle Detection Dashboard</h1>
+
+        <!-- Video Upload Section -->
+        <h2>Upload Video</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" accept="video/*">
+            <button type="submit">Upload and Process</button>
+        </form>
+        <div id="results" class="result-box"></div>
+
+        <!-- Blacklist Management Section -->
+        <h2>Manage Blacklisted Number Plates</h2>
+        <form id="blacklistForm">
+            <input type="text" name="numberplate" placeholder="Enter Number Plate">
+            <button type="button" id="addBlacklist">Add to Blacklist</button>
+            <button type="button" id="removeBlacklist">Remove from Blacklist</button>
+        </form>
+        <div id="blacklistResults" class="result-box"></div>
+
+        <!-- Speed Threshold Section -->
+        <h2>Set Speed Threshold</h2>
+        <form id="thresholdForm">
+            <input type="number" name="threshold" placeholder="Enter Speed Threshold (km/h)">
+            <button type="submit">Set Threshold</button>
+        </form>
+        <div id="thresholdResults" class="result-box"></div>
+
+        <!-- Analytics Dashboard Section -->
+        <h2>Analytics Dashboard</h2>
+        <div id="analyticsResults" class="result-box">
+            <p>Loading statistics...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript for AJAX Requests -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Function to fetch and display statistics
+            function fetchStats() {
+                $.ajax({
+                    url: '/stats',
+                    type: 'GET',
+                    success: function(response) {
+                        let html = `
+                            <p>Total Vehicles Processed: ${response.total_vehicles}</p>
+                            <p>Average Speed: ${response.average_speed} km/h</p>
+                            <p>Overspeeding Vehicles: ${response.overspeeding}</p>
+                            <p>Blacklisted Vehicles: ${response.blacklisted}</p>
+                            <p>Top Violators:</p>
+                            <ul>
+                        `;
+                        if (response.top_violators.length > 0) {
+                            response.top_violators.forEach(violator => {
+                                html += `<li>${violator.numberplate}: ${violator.violation_count} violations</li>`;
+                            });
+                        } else {
+                            html += `<li>No violators found.</li>`;
+                        }
+                        html += `</ul>`;
+                        $('#analyticsResults').html(html);
+                    },
+                    error: function(xhr, status, error) {
+                        $('#analyticsResults').html('<p>Error loading statistics: ' + error + '</p>');
+                    }
+                });
+            }
+
+            // Fetch stats on page load
+            fetchStats();
+
+            // Video Upload
+            $('#uploadForm').submit(function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $('#results').html('<p>Video processed. Results: ' + JSON.stringify(response) + '</p>');
+                        // Refresh stats after processing
+                        fetchStats();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#results').html('<p>Error: ' + error + '</p>');
+                    }
+                });
+            });
+
+            // Add to Blacklist
+            $('#addBlacklist').click(function() {
+                var numberplate = $('input[name=numberplate]').val().replace(" ", "");
+                $.ajax({
+                    url: '/blacklist',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ action: 'add', numberplate: numberplate }),
+                    success: function(response) {
+                        $('#blacklistResults').html('<p>' + response.message + '</p>');
+                    },
+                    error: function(xhr, status, error) {
+                        $('#blacklistResults').html('<p>Error: ' + error + '</p>');
+                    }
+                });
+            });
+
+            // Remove from Blacklist
+            $('#removeBlacklist').click(function() {
+                var numberplate = $('input[name=numberplate]').val().replace(" ", "");
+                $.ajax({
+                    url: '/blacklist',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ action: 'remove', numberplate: numberplate }),
+                    success: function(response) {
+                        $('#blacklistResults').html('<p>' + response.message + '</p>');
+                    },
+                    error: function(xhr, status, error) {
+                        $('#blacklistResults').html('<p>Error: ' + error + '</p>');
+                    }
+                });
+            });
+
+            // Set Speed Threshold
+            $('#thresholdForm').submit(function(e) {
+                e.preventDefault();
+                var threshold = $('input[name=threshold]').val();
+                $.ajax({
+                    url: '/threshold',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ threshold: parseInt(threshold) }),
+                    success: function(response) {
+                        $('#thresholdResults').html('<p>' + response.message + '</p>');
+                    },
+                    error: function(xhr, status, error) {
+                        $('#thresholdResults').html('<p>Error: ' + error + '</p>');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

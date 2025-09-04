@@ -1,0 +1,21 @@
+PACKAGE INSTALLATION
+pip install - oprcv, ultralytics , paddlepaddle , paddleocr
+
+
+
+EXTRA GYAAN FOR QA: 
+knn logistic random forest kya use ho rha h?
+confusion matrix , graphs wagerah
+
+training model yolov11 using 5 epochs- https://www.youtube.com/watch?v=POmyidzahLg
+https://www.youtube.com/watch?v=zh1CZK7chbo
+very imp vdo:- https://www.youtube.com/watch?v=HL5s2XOmTY8
+https://www.youtube.com/watch?v=yMQvcWBx1fE
+
+
+theft ke liye STOLEN CARS
+HELMET DETECTION
+live realtime if with help of camera we show it a video then will it detect
+Is it possible - live realtime if with help of camera we show it a video then will it detect
+which can be used for CCTV in traffic roads
+like for demstration i can show a video

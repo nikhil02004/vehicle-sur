@@ -1,0 +1,9 @@
+flask
+opencv-python
+numpy
+ultralytics
+paddleocr
+mysql-connector-python
+flask-socketio
+paddlepaddle
+lap

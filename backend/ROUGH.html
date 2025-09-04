@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Detection Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+        }
+        .card {
+            border-radius: 10px;
+            transition: 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            transition: 0.3s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .spinner-border {
+            display: none;
+            margin-left: 10px;
+        }
+        .dark-mode {
+            background-color: #343a40;
+            color: white;
+        }
+        .dark-mode .card {
+            background-color: #495057;
+            color: white;
+        }
+        .dark-mode button {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center"><i class="fas fa-car"></i> Vehicle Detection Dashboard</h1>
+
+        <!-- Dark Mode Toggle -->
+        <div class="text-end">
+            <button class="btn btn-dark" onclick="toggleDarkMode()"><i class="fas fa-moon"></i> Dark Mode</button>
+        </div>
+
+        <!-- Video Upload Section -->
+        <div class="card mt-3 p-3">
+            <h3><i class="fas fa-upload"></i> Upload Video</h3>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" name="file" class="form-control mt-2" accept="video/*">
+                <button type="submit" class="btn btn-primary mt-2">Upload & Process <i class="fas fa-paper-plane"></i></button>
+                <div class="spinner-border text-primary" id="uploadSpinner"></div>
+            </form>
+            <div id="results" class="alert alert-info mt-2" style="display: none;"></div>
+        </div>
+
+        <!-- Blacklist Management Section -->
+        <div class="card mt-3 p-3">
+            <h3><i class="fas fa-ban"></i> Manage Blacklisted Vehicles</h3>
+            <form id="blacklistForm">
+                <input type="text" name="numberplate" class="form-control mt-2" placeholder="Enter Number Plate">
+                <button type="button" id="addBlacklist" class="btn btn-danger mt-2">Add to Blacklist <i class="fas fa-plus-circle"></i></button>
+                <button type="button" id="removeBlacklist" class="btn btn-warning mt-2">Remove <i class="fas fa-trash"></i></button>
+            </form>
+            <div id="blacklistResults" class="alert alert-success mt-2" style="display: none;"></div>
+        </div>
+
+        <!-- Speed Threshold Section -->
+        <div class="card mt-3 p-3">
+            <h3><i class="fas fa-tachometer-alt"></i> Set Speed Threshold</h3>
+            <form id="thresholdForm">
+                <input type="number" name="threshold" class="form-control mt-2" placeholder="Enter Speed (km/h)">
+                <button type="submit" class="btn btn-success mt-2">Set Threshold <i class="fas fa-check-circle"></i></button>
+            </form>
+            <div id="thresholdResults" class="alert alert-info mt-2" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Bootstrap & jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        $(document).ready(function() {
+            // Video Upload
+            $('#uploadForm').submit(function(e) {
+                e.preventDefault();
+                $('#uploadSpinner').show();
+                var formData = new FormData(this);
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $('#results').html('<strong>Video Processed!</strong> ' + JSON.stringify(response)).show();
+                        $('#uploadSpinner').hide();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#results').html('<strong>Error:</strong> ' + error).show();
+                        $('#uploadSpinner').hide();
+                    }
+                });
+            });
+
+            // Add to Blacklist
+            $('#addBlacklist').click(function() {
+                var numberplate = $('input[name=numberplate]').val().replace(" ", "");
+                $.ajax({
+                    url: '/blacklist',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ action: 'add', numberplate: numberplate }),
+                    success: function(response) {
+                        $('#blacklistResults').html('<strong>' + response.message + '</strong>').show();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#blacklistResults').html('<strong>Error:</strong> ' + error).show();
+                    }
+                });
+            });
+
+            // Remove from Blacklist
+            $('#removeBlacklist').click(function() {
+                var numberplate = $('input[name=numberplate]').val().replace(" ", "");
+                $.ajax({
+                    url: '/blacklist',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ action: 'remove', numberplate: numberplate }),
+                    success: function(response) {
+                        $('#blacklistResults').html('<strong>' + response.message + '</strong>').show();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#blacklistResults').html('<strong>Error:</strong> ' + error).show();
+                    }
+                });
+            });
+
+            // Set Speed Threshold
+            $('#thresholdForm').submit(function(e) {
+                e.preventDefault();
+                var threshold = $('input[name=threshold]').val();
+                $.ajax({
+                    url: '/threshold',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ threshold: parseInt(threshold) }),
+                    success: function(response) {
+                        $('#thresholdResults').html('<strong>' + response.message + '</strong>').show();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#thresholdResults').html('<strong>Error:</strong> ' + error).show();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

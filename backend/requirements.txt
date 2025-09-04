@@ -1,0 +1,9 @@
+flask
+opencv-python
+numpy<2.0
+ultralytics
+paddleocr==2.8.1
+mysql-connector-python
+flask-socketio
+paddlepaddle
+lap
