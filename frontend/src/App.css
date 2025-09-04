@@ -1,0 +1,6 @@
+/* Custom styles for the Vehicle Detection Dashboard */
+
+/* Override default React styles if needed */
+.App {
+  min-height: 100vh;
+}
