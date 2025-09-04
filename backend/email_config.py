@@ -1,19 +1,24 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 # Email Configuration
-# Update these values with your email settings
+# All sensitive data is now loaded from .env file
 
 # Sender email (the Gmail account that will send alerts)
-EMAIL_SENDER = "nikhil02205@gmail.com"
+EMAIL_SENDER = os.getenv('EMAIL_SENDER')
 
-# Gmail app password (not your regular password)
-# Generate this from: Google Account > Security > 2-Step Verification > App passwords
-EMAIL_PASSWORD = "eflb zyfn xsix txru"
+# Gmail app password (loaded from environment)
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
 # Receiver email (where alerts will be sent)
-EMAIL_RECEIVER = "nikhil02205@gmail.com"
+EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER')
 
 # SMTP Configuration (Gmail settings)
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 
 # Email Settings
-EMAIL_ENABLED = True  # Set to False to disable email alerts
+EMAIL_ENABLED = os.getenv('EMAIL_ENABLED', 'true').lower() == 'true'

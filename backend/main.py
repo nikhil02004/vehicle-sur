@@ -9,18 +9,23 @@ from paddleocr import PaddleOCR
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # Import email configuration
 try:
     from email_config import EMAIL_SENDER, EMAIL_PASSWORD, EMAIL_RECEIVER, SMTP_SERVER, SMTP_PORT, EMAIL_ENABLED
 except ImportError:
-    # Fallback to default values if config file doesn't exist
-    EMAIL_SENDER = "nikhil02205@gmail.com"
-    EMAIL_PASSWORD = "eflb zyfn xsix txru"
-    EMAIL_RECEIVER = "nikhil02205@gmail.com"
-    SMTP_SERVER = "smtp.gmail.com"
-    SMTP_PORT = 587
-    EMAIL_ENABLED = True
+    # Fallback to environment variables if config file doesn't exist
+    EMAIL_SENDER = os.getenv('EMAIL_SENDER')
+    EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+    EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER')
+    SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+    SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+    EMAIL_ENABLED = os.getenv('EMAIL_ENABLED', 'true').lower() == 'true'
 
 class SpeedEstimator(BaseSolution):
     def __init__(self, **kwargs):

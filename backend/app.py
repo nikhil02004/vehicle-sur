@@ -5,6 +5,10 @@ import cv2
 import numpy as np
 import mysql.connector
 from main import SpeedEstimator  # Import SpeedEstimator from main.py
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -55,9 +59,9 @@ def connect_to_db():
         return mysql.connector.connect(
             host="localhost",
             user="root",
-            password="nikhil",  # Updated to correct password
+            password="nikhil",
             database="numberplates_speed",
-            port=3306  # Explicitly specify default MySQL port
+            port=3306
         )
     except mysql.connector.Error as err:
         print(f"Database connection failed: {err}")
