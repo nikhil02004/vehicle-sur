@@ -6,15 +6,15 @@ This document summarizes the password protection implementation for the vehicle 
 
 ### 📋 Passwords Identified and Secured
 
-1. **MySQL Database Password**: `nikhil`
+1. **MySQL Database Password**: `[REDACTED]`
    - **Location**: Database connections in multiple files
    - **Files Updated**: `config.py`, `app.py`, `main.py`
 
-2. **Gmail App Password**: `eflb zyfn xsix txru`
+2. **Gmail App Password**: `[REDACTED]`
    - **Location**: Email SMTP configuration
    - **Files Updated**: `email_config.py`, `main.py`
 
-3. **Email Address**: `nikhil02205@gmail.com`
+3. **Email Address**: `[REDACTED]`
    - **Location**: Email sender and receiver configuration
    - **Files Updated**: `email_config.py`, `.env`
 
@@ -34,13 +34,13 @@ This document summarizes the password protection implementation for the vehicle 
 # Database Configuration
 MYSQL_HOST=localhost
 MYSQL_USER=root
-MYSQL_PASSWORD=nikhil
+MYSQL_PASSWORD=[REDACTED]
 MYSQL_DATABASE=vehicle_detection
 
 # Email Configuration  
-EMAIL_SENDER=nikhil02205@gmail.com
-EMAIL_PASSWORD=eflb zyfn xsix txru
-EMAIL_RECEIVER=nikhil02205@gmail.com
+EMAIL_SENDER=[REDACTED]
+EMAIL_PASSWORD=[REDACTED]
+EMAIL_RECEIVER=[REDACTED]
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 EMAIL_ENABLED=true
