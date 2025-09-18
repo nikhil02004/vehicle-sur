@@ -51,10 +51,11 @@ class SpeedEstimator(BaseSolution):
     def connect_to_db(self):
         try:
             connection = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="nikhil",
-                database="numberplates_speed"
+                host=os.getenv('DB_HOST', 'localhost'),
+                user=os.getenv('DB_USER', 'root'),
+                password=os.getenv('DB_PASSWORD'),
+                database=os.getenv('DB_NAME', 'numberplates_speed'),
+                port=int(os.getenv('DB_PORT', '3306'))
             )
             return connection
         except mysql.connector.Error as err:

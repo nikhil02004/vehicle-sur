@@ -4,7 +4,7 @@ import { Upload, BarChart3, Settings, AlertTriangle } from 'lucide-react';
 
 const Layout: React.FC = () => {
     const navItems = [
-        { to: '/', icon: Upload, label: 'Upload Video' },
+        { to: '/upload', icon: Upload, label: 'Upload Video' },
         { to: '/analytics', icon: BarChart3, label: 'Analytics' },
         { to: '/blacklist', icon: AlertTriangle, label: 'Blacklist' },
         { to: '/settings', icon: Settings, label: 'Settings' },

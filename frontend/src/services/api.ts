@@ -79,7 +79,7 @@ export const uploadVideo = async (file: File): Promise<UploadResponse> => {
 export const getAnalytics = async (): Promise<Analytics> => {
     const response = await api.get('/stats');
     const data = response.data;
-    
+
     // Transform the legacy response to the new format
     return {
         total_vehicles: data.total_vehicles || 0,
@@ -133,6 +133,11 @@ export const manageBlacklist = async (data: BlacklistRequest) => {
 };
 
 // Settings functions
+export const getThreshold = async () => {
+    const response = await api.get('/threshold');
+    return response.data;
+};
+
 export const setThreshold = async (data: ThresholdRequest) => {
     const response = await api.post('/threshold', data);
     return response.data;

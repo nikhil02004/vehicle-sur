@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,7 @@
             margin: 0;
             padding: 20px;
         }
-        
+
         .container {
             width: 50%;
             margin: auto;
@@ -22,26 +23,29 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        
-        h1, h2 {
+
+        h1,
+        h2 {
             color: #333;
         }
-        
+
         form {
             margin-bottom: 20px;
             padding: 15px;
             background: #e9ecef;
             border-radius: 5px;
         }
-        
-        input[type="text"], input[type="number"], input[type="file"] {
+
+        input[type="text"],
+        input[type="number"],
+        input[type="file"] {
             padding: 10px;
             width: calc(100% - 22px);
             margin-bottom: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
         }
-        
+
         button {
             width: 100%;
             padding: 10px;
@@ -53,11 +57,11 @@
             transition: 0.3s;
             font-size: 16px;
         }
-        
+
         button:hover {
             background-color: #0056b3;
         }
-        
+
         .result-box {
             padding: 10px;
             margin-top: 10px;
@@ -68,6 +72,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1><i class="fas fa-car"></i> Vehicle Detection Dashboard</h1>
@@ -107,13 +112,13 @@
     <!-- JavaScript for AJAX Requests -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Function to fetch and display statistics
             function fetchStats() {
                 $.ajax({
                     url: '/stats',
                     type: 'GET',
-                    success: function(response) {
+                    success: function (response) {
                         let html = `
                             <p>Total Vehicles Processed: ${response.total_vehicles}</p>
                             <p>Average Speed: ${response.average_speed} km/h</p>
@@ -132,17 +137,33 @@
                         html += `</ul>`;
                         $('#analyticsResults').html(html);
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         $('#analyticsResults').html('<p>Error loading statistics: ' + error + '</p>');
                     }
                 });
             }
 
-            // Fetch stats on page load
+            // Function to fetch and display current threshold
+            function fetchThreshold() {
+                $.ajax({
+                    url: '/threshold',
+                    type: 'GET',
+                    success: function (response) {
+                        $('input[name=threshold]').val(response.threshold);
+                        $('#thresholdResults').html('<p>Current threshold: ' + response.threshold + ' km/h</p>');
+                    },
+                    error: function (xhr, status, error) {
+                        console.log('Error loading threshold: ' + error);
+                    }
+                });
+            }
+
+            // Fetch stats and threshold on page load
             fetchStats();
+            fetchThreshold();
 
             // Video Upload
-            $('#uploadForm').submit(function(e) {
+            $('#uploadForm').submit(function (e) {
                 e.preventDefault();
                 var formData = new FormData(this);
                 $.ajax({
@@ -151,53 +172,53 @@
                     data: formData,
                     processData: false,
                     contentType: false,
-                    success: function(response) {
+                    success: function (response) {
                         $('#results').html('<p>Video processed. Results: ' + JSON.stringify(response) + '</p>');
                         // Refresh stats after processing
                         fetchStats();
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         $('#results').html('<p>Error: ' + error + '</p>');
                     }
                 });
             });
 
             // Add to Blacklist
-            $('#addBlacklist').click(function() {
+            $('#addBlacklist').click(function () {
                 var numberplate = $('input[name=numberplate]').val().replace(" ", "");
                 $.ajax({
                     url: '/blacklist',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ action: 'add', numberplate: numberplate }),
-                    success: function(response) {
+                    success: function (response) {
                         $('#blacklistResults').html('<p>' + response.message + '</p>');
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         $('#blacklistResults').html('<p>Error: ' + error + '</p>');
                     }
                 });
             });
 
             // Remove from Blacklist
-            $('#removeBlacklist').click(function() {
+            $('#removeBlacklist').click(function () {
                 var numberplate = $('input[name=numberplate]').val().replace(" ", "");
                 $.ajax({
                     url: '/blacklist',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ action: 'remove', numberplate: numberplate }),
-                    success: function(response) {
+                    success: function (response) {
                         $('#blacklistResults').html('<p>' + response.message + '</p>');
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         $('#blacklistResults').html('<p>Error: ' + error + '</p>');
                     }
                 });
             });
 
             // Set Speed Threshold
-            $('#thresholdForm').submit(function(e) {
+            $('#thresholdForm').submit(function (e) {
                 e.preventDefault();
                 var threshold = $('input[name=threshold]').val();
                 $.ajax({
@@ -205,10 +226,10 @@
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ threshold: parseInt(threshold) }),
-                    success: function(response) {
+                    success: function (response) {
                         $('#thresholdResults').html('<p>' + response.message + '</p>');
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         $('#thresholdResults').html('<p>Error: ' + error + '</p>');
                     }
                 });
@@ -216,4 +237,5 @@
         });
     </script>
 </body>
+
 </html>
