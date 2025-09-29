@@ -149,11 +149,10 @@ const BlacklistManager: React.FC = () => {
                             <button
                                 type="submit"
                                 disabled={adding || !newPlate.trim()}
-                                className={`inline-flex items-center px-6 py-3 rounded-lg font-semibold transition-all card-hover ${
-                                    adding || !newPlate.trim()
+                                className={`inline-flex items-center px-6 py-3 rounded-lg font-semibold transition-all card-hover ${adding || !newPlate.trim()
                                         ? 'bg-gray-400 text-white cursor-not-allowed'
                                         : 'bg-red-600 text-white hover:bg-red-700 shadow-lg'
-                                }`}
+                                    }`}
                             >
                                 {adding ? (
                                     <>
@@ -219,9 +218,6 @@ const BlacklistManager: React.FC = () => {
                                         Reason
                                     </th>
                                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Date Added
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
                                     </th>
                                     <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -231,8 +227,8 @@ const BlacklistManager: React.FC = () => {
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredBlacklist.map((entry, index) => (
-                                    <tr 
-                                        key={entry.license_plate} 
+                                    <tr
+                                        key={entry.license_plate}
                                         className="hover:bg-gray-50 transition-colors animate-fadeIn"
                                         style={{ animationDelay: `${index * 0.1}s` }}
                                     >
@@ -246,11 +242,6 @@ const BlacklistManager: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="text-sm text-gray-900 max-w-xs">
                                                 {entry.reason || 'No reason provided'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-500">
-                                                {new Date(entry.created_at).toLocaleDateString()}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

@@ -1,3 +1,9 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 import os
@@ -6,12 +12,21 @@ import numpy as np
 import mysql.connector
 from main import SpeedEstimator  # Import SpeedEstimator from main.py
 from dotenv import load_dotenv
+import bcrypt
+import jwt
+import re
+from datetime import datetime, timedelta
+from functools import wraps
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# JWT Configuration
+# Security configuration from environment
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'fallback-secret-key-change-this')
 
 UPLOAD_FOLDER = "uploads"
 RESULT_FOLDER = "results"
@@ -37,35 +52,238 @@ def generate_output_video(input_video_path):
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out_writer = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
+    # Initialize SpeedEstimator with proper database connection
     estimator = SpeedEstimator(region=[(0, 145), (1018, 145)], model=model_path, line_width=2)
+    
+    # Ensure the estimator is properly connected to database
+    if estimator.db_connection is None:
+        print("Warning: Database connection failed in SpeedEstimator")
+    else:
+        print("SpeedEstimator connected to database successfully")
+    
+    # Fetch and log current threshold
+    current_threshold = estimator.get_threshold_speed()
+    print(f"Processing video with speed threshold: {current_threshold} km/h")
+    print(f"Email notifications enabled: {estimator.email_enabled}")
 
+    frame_count = 0
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
+        frame_count += 1
+        print(f"Processing frame {frame_count}")
+        
+        # Estimate speed and get detection results
         detection_results = estimator.estimate_speed(frame)
+        
+        # Get the annotated frame
         processed_frame = estimator.annotator.result()
 
         if processed_frame is not None and isinstance(processed_frame, np.ndarray):
             out_writer.write(processed_frame)
+        
+        # Log any violations found in this frame
+        for result in detection_results:
+            if result['status'] in ['BLACKLISTED', 'OVER SPEED']:
+                print(f"VIOLATION DETECTED: {result['numberplate']} - {result['status']} at {result['speed']} km/h")
 
     cap.release()
     out_writer.release()
+    
+    # Close database connection
+    if estimator.db_connection and estimator.db_connection.is_connected():
+        estimator.db_connection.close()
+        print("Database connection closed")
+    
+    print(f"Video processing completed. Output saved to: {output_path}")
     return output_path
 
 def connect_to_db():
     try:
         return mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="nikhil",
-            database="numberplates_speed",
-            port=3306
+            host=os.getenv('DB_HOST', 'localhost'),
+            user=os.getenv('DB_USER', 'root'),
+            password=os.getenv('DB_PASSWORD'),
+            database=os.getenv('DB_NAME', 'numberplates_speed'),
+            port=int(os.getenv('DB_PORT', '3306'))
         )
     except mysql.connector.Error as err:
         print(f"Database connection failed: {err}")
         return None
+
+# Authentication Helper Functions
+def hash_password(password):
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password, hashed_password):
+    """Verify a password against its hash."""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def validate_email(email):
+    """Validate email format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_password(password):
+    """Validate password strength."""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not re.search(r'[A-Za-z]', password):
+        return False, "Password must contain at least one letter"
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number"
+    return True, "Password is valid"
+
+def generate_token(user_id, username, role):
+    """Generate a JWT token for the user."""
+    payload = {
+        'user_id': user_id,
+        'username': username,
+        'role': role,
+        'exp': datetime.utcnow() + timedelta(hours=24),  # Token expires in 24 hours
+        'iat': datetime.utcnow()
+    }
+    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
+    return token
+
+def verify_token(token):
+    """Verify and decode a JWT token."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return {'error': 'Token has expired'}
+    except jwt.InvalidTokenError:
+        return {'error': 'Invalid token'}
+
+def create_user(username, email, password, role='user'):
+    """Create a new user in the database."""
+    connection = connect_to_db()
+    if not connection:
+        return {'error': 'Database connection failed'}
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Check if user already exists
+        cursor.execute("SELECT id FROM users WHERE username = %s OR email = %s", (username, email))
+        if cursor.fetchone():
+            return {'error': 'User with this username or email already exists'}
+        
+        # Validate email
+        if not validate_email(email):
+            return {'error': 'Invalid email format'}
+        
+        # Validate password
+        is_valid, message = validate_password(password)
+        if not is_valid:
+            return {'error': message}
+        
+        # Hash password and insert user
+        hashed_password = hash_password(password)
+        cursor.execute(
+            "INSERT INTO users (username, email, password_hash, role) VALUES (%s, %s, %s, %s)",
+            (username, email, hashed_password, role)
+        )
+        connection.commit()
+        
+        # Get the created user
+        user_id = cursor.lastrowid
+        
+        return {
+            'success': True, 
+            'message': 'User created successfully',
+            'user': {
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'role': role
+            }
+        }
+        
+    except mysql.connector.Error as err:
+        return {'error': f'Database error: {err}'}
+    finally:
+        cursor.close()
+        connection.close()
+
+def authenticate_user(username, password):
+    """Authenticate a user and return a JWT token."""
+    connection = connect_to_db()
+    if not connection:
+        return {'error': 'Database connection failed'}
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT id, username, email, password_hash, role, is_active FROM users WHERE username = %s",
+            (username,)
+        )
+        user = cursor.fetchone()
+        
+        if not user:
+            return {'error': 'Invalid credentials'}
+        
+        user_id, username, email, password_hash, role, is_active = user
+        
+        if not is_active:
+            return {'error': 'Account is deactivated'}
+        
+        if not verify_password(password, password_hash):
+            return {'error': 'Invalid credentials'}
+        
+        # Generate JWT token
+        token = generate_token(user_id, username, role)
+        
+        return {
+            'success': True,
+            'token': token,
+            'user': {
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'role': role
+            }
+        }
+        
+    except mysql.connector.Error as err:
+        return {'error': f'Database error: {err}'}
+    finally:
+        cursor.close()
+        connection.close()
+
+# Middleware for token verification
+def token_required(f):
+    """Decorator to require JWT token for protected routes."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+        
+        try:
+            # Remove 'Bearer ' prefix if present
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            payload = verify_token(token)
+            if 'error' in payload:
+                return jsonify(payload), 401
+            
+            request.current_user = payload
+            
+        except Exception as e:
+            return jsonify({'error': 'Token is invalid'}), 401
+        
+        return f(*args, **kwargs)
+    
+    return decorated
 
 @app.route('/')
 def index():
@@ -106,39 +324,70 @@ def upload_video():
         return jsonify({"error": "Internal server error"}), 500
 
 # Blacklist Management Routes
+@app.route('/blacklist', methods=["GET"])
+@token_required
+def get_blacklist():
+    """Get all blacklisted vehicles."""
+    try:
+        db_connection = connect_to_db()
+        if not db_connection:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cursor = db_connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, numberplate, reason FROM blacklisted_vehicles ORDER BY id DESC")
+        blacklisted_vehicles = cursor.fetchall()
+        cursor.close()
+        db_connection.close()
+        
+        # Transform to match frontend expected format
+        result = []
+        for vehicle in blacklisted_vehicles:
+            result.append({
+                "license_plate": vehicle["numberplate"],
+                "reason": vehicle["reason"]
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/blacklist', methods=["POST"])
+@token_required
 def manage_blacklist():
     data = request.get_json()
     action = data.get('action')
     numberplate = data.get('numberplate').replace(" ", "")
+    reason = data.get('reason', 'Added via API')
 
     if action == 'add':
-        return add_to_blacklist(numberplate)
+        return add_to_blacklist(numberplate, reason)
     elif action == 'remove':
         return remove_from_blacklist(numberplate)
     else:
         return jsonify({"error": "Invalid action"}), 400
 
-def add_to_blacklist(numberplate):
+def add_to_blacklist(numberplate, reason="Added via API"):
     try:
-        estimator = SpeedEstimator()  # Initialize if needed
-        db_connection = estimator.connect_to_db()
+        db_connection = connect_to_db()
         cursor = db_connection.cursor()
         query = "INSERT INTO blacklisted_vehicles (numberplate, reason) VALUES (%s, %s)"
-        cursor.execute(query, (numberplate, "Added via API"))
+        cursor.execute(query, (numberplate, reason))
         db_connection.commit()
+        cursor.close()
+        db_connection.close()
         return jsonify({"message": f"{numberplate} added to blacklist"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 def remove_from_blacklist(numberplate):
     try:
-        estimator = SpeedEstimator()  # Initialize if needed
-        db_connection = estimator.connect_to_db()
+        db_connection = connect_to_db()
         cursor = db_connection.cursor()
         query = "DELETE FROM blacklisted_vehicles WHERE numberplate = %s"
         cursor.execute(query, (numberplate,))
         db_connection.commit()
+        cursor.close()
+        db_connection.close()
         return jsonify({"message": f"{numberplate} removed from blacklist"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -184,6 +433,47 @@ def set_threshold():
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+    finally:
+        if 'conn' in locals() and conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+@app.route('/threshold', methods=['GET'])
+def get_threshold():
+    """Get current speed threshold from database."""
+    try:
+        conn = connect_to_db()
+        if not conn:
+            return jsonify({"threshold": 50}), 200  # Return default on DB error
+            
+        cursor = conn.cursor()
+        
+        # Create settings table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                threshold_speed FLOAT NOT NULL DEFAULT 50
+            )
+        """)
+        
+        # Insert default record if none exists
+        cursor.execute("INSERT INTO settings (threshold_speed) SELECT 50 WHERE NOT EXISTS (SELECT * FROM settings)")
+        conn.commit()
+        
+        # Get current threshold
+        cursor.execute("SELECT threshold_speed FROM settings WHERE id = 1")
+        result = cursor.fetchone()
+        
+        if result:
+            threshold = result[0]
+        else:
+            threshold = 50  # Default fallback
+            
+        return jsonify({"threshold": threshold})
+        
+    except Exception as e:
+        print(f"Error getting threshold: {str(e)}")
+        return jsonify({"threshold": 50}), 200  # Return default on error
     finally:
         if 'conn' in locals() and conn and conn.is_connected():
             cursor.close()
@@ -300,5 +590,199 @@ def set_email_config():
             cursor.close()
             conn.close()
 
+# Authentication Routes
+@app.route('/auth/signup', methods=['POST'])
+def signup():
+    """User registration endpoint."""
+    try:
+        print("Signup attempt received")
+        data = request.get_json()
+        if not data:
+            print("No data provided")
+            return jsonify({'error': 'No data provided'}), 400
+            
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'user')  # Default to 'user' role
+        
+        print(f"Signup attempt for username: {username}, email: {email}")
+        
+        if not all([username, email, password]):
+            print("Missing required fields")
+            return jsonify({'error': 'Username, email, and password are required'}), 400
+        
+        if role not in ['admin', 'user']:
+            role = 'user'  # Default to user if invalid role provided
+        
+        result = create_user(username, email, password, role)
+        print(f"User creation result: {result}")
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result), 201
+        
+    except Exception as e:
+        print(f"Signup error: {e}")
+        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """User login endpoint."""
+    try:
+        print("Login attempt received")
+        data = request.get_json()
+        if not data:
+            print("No data provided")
+            return jsonify({'error': 'No data provided'}), 400
+            
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        print(f"Login attempt for username: {username}")
+        
+        if not username or not password:
+            print("Missing username or password")
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        result = authenticate_user(username, password)
+        print(f"Authentication result: {result}")
+        
+        if 'error' in result:
+            return jsonify(result), 401
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': f'Login failed: {str(e)}'}), 500
+
+@app.route('/auth/verify', methods=['GET'])
+@token_required
+def verify_user_token():
+    """Verify JWT token and return user info."""
+    try:
+        return jsonify({
+            'valid': True,
+            'user': {
+                'id': request.current_user['user_id'],
+                'username': request.current_user['username'],
+                'role': request.current_user['role']
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'Token verification failed: {str(e)}'}), 500
+
+@app.route('/auth/profile', methods=['GET'])
+@token_required
+def get_profile():
+    """Get current user profile."""
+    try:
+        return jsonify({
+            'user': {
+                'id': request.current_user['user_id'],
+                'username': request.current_user['username'],
+                'role': request.current_user['role']
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to get profile: {str(e)}'}), 500
+
+@app.route('/test', methods=['GET'])
+def test():
+    """Test endpoint."""
+    return jsonify({"message": "Test endpoint working", "status": "OK"})
+
+@app.route('/users', methods=['GET'])
+@token_required
+def get_users():
+    """Get all users (protected endpoint)."""
+    try:
+        connection = connect_to_db()
+        if not connection:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, username, email, role, created_at, is_active FROM users ORDER BY created_at DESC")
+        users = cursor.fetchall()
+        
+        user_list = []
+        for user in users:
+            user_list.append({
+                'id': user[0],
+                'username': user[1],
+                'email': user[2],
+                'role': user[3],
+                'created_at': user[4].isoformat() if user[4] else None,
+                'is_active': user[5]
+            })
+        
+        return jsonify({'users': user_list}), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get users: {str(e)}'}), 500
+    finally:
+        if 'connection' in locals() and connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/user-dashboard', methods=['GET'])
+@token_required
+def get_user_dashboard():
+    """Get dashboard data for a specific user (numberplate)."""
+    try:
+        # Get the username from the authenticated user (which will be the numberplate)
+        username = request.current_user['username']
+        
+        connection = connect_to_db()
+        if not connection:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Get all records for this numberplate
+        cursor.execute("SELECT * FROM my_data WHERE numberplate = %s", (username,))
+        records = cursor.fetchall()
+        
+        # Calculate metrics
+        total_passes = len(records)
+        violations = len([r for r in records if r['status'] in ['OVER SPEED', 'BLACKLISTED']])
+        
+        # Check if blacklisted
+        cursor.execute("SELECT COUNT(*) as count FROM blacklisted_vehicles WHERE numberplate = %s", (username,))
+        is_blacklisted = cursor.fetchone()['count'] > 0
+        
+        # Calculate average speed
+        speeds = [r['speed'] for r in records if r['speed'] is not None]
+        avg_speed = sum(speeds) / len(speeds) if speeds else 0
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'numberplate': username,
+                'times_passed': total_passes,
+                'violations': violations,
+                'is_blacklisted': is_blacklisted,
+                'avg_speed': round(avg_speed, 2)
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"User dashboard error: {e}")
+        return jsonify({'error': f'Failed to get dashboard data: {str(e)}'}), 500
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    print("Starting unified backend server with authentication...")
+    print("Server will be available at: http://localhost:5000")
+    print("Available endpoints:")
+    print("  - Authentication: /auth/login, /auth/signup, /auth/verify")
+    print("  - Video processing: /upload")
+    print("  - Blacklist management: /blacklist")
+    print("  - Analytics: /stats")
+    print("  - User Dashboard: /user-dashboard")
+    print("  - Test: /test")
+    app.run(debug=True, port=5000, host='localhost')
