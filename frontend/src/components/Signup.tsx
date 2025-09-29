@@ -111,8 +111,12 @@ const Signup: React.FC = () => {
           // Update auth context
           login(loginData.user, loginData.token);
 
-          // Navigate to dashboard
-          navigate('/dashboard');
+          // Navigate based on user role
+          if (loginData.user.role === 'user') {
+            window.location.href = '/user-dashboard';
+          } else {
+            window.location.href = '/dashboard';
+          }
         } else {
           // If auto-login fails, redirect to login page
           navigate('/login', {

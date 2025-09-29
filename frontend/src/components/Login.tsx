@@ -45,8 +45,12 @@ const Login: React.FC = () => {
         // Update auth context
         login(data.user, data.token);
 
-        // Navigate to dashboard
-        navigate('/dashboard');
+        // Navigate based on user role
+        if (data.user.role === 'user') {
+          window.location.href = '/user-dashboard';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         setError(data.error || 'Login failed');
       }

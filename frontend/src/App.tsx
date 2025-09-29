@@ -9,6 +9,7 @@ import Settings from './components/Settings';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
+import UserDashboard from './components/UserDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -25,6 +26,12 @@ function App() {
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/user-dashboard" element={
+              <ProtectedRoute>
+                <UserDashboard />
               </ProtectedRoute>
             } />
 

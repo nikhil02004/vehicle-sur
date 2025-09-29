@@ -40,7 +40,6 @@ export interface StatsResponse {
 export interface BlacklistEntry {
     license_plate: string;
     reason: string;
-    created_at: string;
 }
 
 export interface BlacklistRequest {
@@ -102,27 +101,41 @@ export const getStats = async (): Promise<StatsResponse> => {
 // Blacklist functions
 export const getBlacklist = async (): Promise<BlacklistEntry[]> => {
     try {
-        const response = await api.get('/blacklist');
+        const token = localStorage.getItem('token');
+        const response = await api.get('/blacklist', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         return response.data;
     } catch (error) {
-        // If endpoint doesn't exist, return empty array
-        console.warn('Blacklist endpoint not available, returning empty array');
-        return [];
+        console.error('Failed to fetch blacklist:', error);
+        throw error;
     }
 };
 
 export const addToBlacklist = async (licensePlate: string, reason: string): Promise<void> => {
+    const token = localStorage.getItem('token');
     await api.post('/blacklist', {
         action: 'add',
         numberplate: licensePlate,
         reason: reason
+    }, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
     });
 };
 
 export const removeFromBlacklist = async (licensePlate: string): Promise<void> => {
+    const token = localStorage.getItem('token');
     await api.post('/blacklist', {
         action: 'remove',
         numberplate: licensePlate
+    }, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
     });
 };
 

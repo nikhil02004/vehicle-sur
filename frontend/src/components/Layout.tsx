@@ -1,14 +1,22 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Upload, BarChart3, Settings, AlertTriangle } from 'lucide-react';
+import { Upload, BarChart3, Settings, AlertTriangle, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Layout: React.FC = () => {
+    const { logout } = useAuth();
+
     const navItems = [
         { to: '/upload', icon: Upload, label: 'Upload Video' },
         { to: '/analytics', icon: BarChart3, label: 'Analytics' },
         { to: '/blacklist', icon: AlertTriangle, label: 'Blacklist' },
         { to: '/settings', icon: Settings, label: 'Settings' },
     ];
+
+    const handleLogout = () => {
+        logout();
+        window.location.href = '/login';
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 animate-fadeIn">
@@ -27,8 +35,8 @@ const Layout: React.FC = () => {
 
             <div className="flex">
                 {/* Sidebar */}
-                <nav className="w-64 bg-white/80 backdrop-blur-sm shadow-lg h-[calc(100vh-4rem)] border-r border-gray-200 animate-slideIn">
-                    <div className="p-4">
+                <nav className="w-64 bg-white/80 backdrop-blur-sm shadow-lg h-[calc(100vh-4rem)] border-r border-gray-200 animate-slideIn flex flex-col">
+                    <div className="p-4 flex-1">
                         <ul className="space-y-2">
                             {navItems.map((item, index) => (
                                 <li key={item.to} style={{ animationDelay: `${index * 0.1}s` }} className="animate-fadeIn">
@@ -47,6 +55,17 @@ const Layout: React.FC = () => {
                                 </li>
                             ))}
                         </ul>
+                    </div>
+
+                    {/* Logout Button */}
+                    <div className="p-4 border-t border-gray-200">
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-lg hover:-translate-y-1"
+                        >
+                            <LogOut className="mr-3 h-5 w-5" />
+                            Logout
+                        </button>
                     </div>
                 </nav>
 

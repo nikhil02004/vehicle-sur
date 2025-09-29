@@ -324,25 +324,54 @@ def upload_video():
         return jsonify({"error": "Internal server error"}), 500
 
 # Blacklist Management Routes
+@app.route('/blacklist', methods=["GET"])
+@token_required
+def get_blacklist():
+    """Get all blacklisted vehicles."""
+    try:
+        db_connection = connect_to_db()
+        if not db_connection:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cursor = db_connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, numberplate, reason FROM blacklisted_vehicles ORDER BY id DESC")
+        blacklisted_vehicles = cursor.fetchall()
+        cursor.close()
+        db_connection.close()
+        
+        # Transform to match frontend expected format
+        result = []
+        for vehicle in blacklisted_vehicles:
+            result.append({
+                "license_plate": vehicle["numberplate"],
+                "reason": vehicle["reason"]
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/blacklist', methods=["POST"])
+@token_required
 def manage_blacklist():
     data = request.get_json()
     action = data.get('action')
     numberplate = data.get('numberplate').replace(" ", "")
+    reason = data.get('reason', 'Added via API')
 
     if action == 'add':
-        return add_to_blacklist(numberplate)
+        return add_to_blacklist(numberplate, reason)
     elif action == 'remove':
         return remove_from_blacklist(numberplate)
     else:
         return jsonify({"error": "Invalid action"}), 400
 
-def add_to_blacklist(numberplate):
+def add_to_blacklist(numberplate, reason="Added via API"):
     try:
         db_connection = connect_to_db()
         cursor = db_connection.cursor()
         query = "INSERT INTO blacklisted_vehicles (numberplate, reason) VALUES (%s, %s)"
-        cursor.execute(query, (numberplate, "Added via API"))
+        cursor.execute(query, (numberplate, reason))
         db_connection.commit()
         cursor.close()
         db_connection.close()
@@ -698,6 +727,54 @@ def get_users():
             cursor.close()
             connection.close()
 
+@app.route('/user-dashboard', methods=['GET'])
+@token_required
+def get_user_dashboard():
+    """Get dashboard data for a specific user (numberplate)."""
+    try:
+        # Get the username from the authenticated user (which will be the numberplate)
+        username = request.current_user['username']
+        
+        connection = connect_to_db()
+        if not connection:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Get all records for this numberplate
+        cursor.execute("SELECT * FROM my_data WHERE numberplate = %s", (username,))
+        records = cursor.fetchall()
+        
+        # Calculate metrics
+        total_passes = len(records)
+        violations = len([r for r in records if r['status'] in ['OVER SPEED', 'BLACKLISTED']])
+        
+        # Check if blacklisted
+        cursor.execute("SELECT COUNT(*) as count FROM blacklisted_vehicles WHERE numberplate = %s", (username,))
+        is_blacklisted = cursor.fetchone()['count'] > 0
+        
+        # Calculate average speed
+        speeds = [r['speed'] for r in records if r['speed'] is not None]
+        avg_speed = sum(speeds) / len(speeds) if speeds else 0
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'numberplate': username,
+                'times_passed': total_passes,
+                'violations': violations,
+                'is_blacklisted': is_blacklisted,
+                'avg_speed': round(avg_speed, 2)
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"User dashboard error: {e}")
+        return jsonify({'error': f'Failed to get dashboard data: {str(e)}'}), 500
+
 if __name__ == "__main__":
     print("Starting unified backend server with authentication...")
     print("Server will be available at: http://localhost:5000")
@@ -706,5 +783,6 @@ if __name__ == "__main__":
     print("  - Video processing: /upload")
     print("  - Blacklist management: /blacklist")
     print("  - Analytics: /stats")
+    print("  - User Dashboard: /user-dashboard")
     print("  - Test: /test")
     app.run(debug=True, port=5000, host='localhost')
