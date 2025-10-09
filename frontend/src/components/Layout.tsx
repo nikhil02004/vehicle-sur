@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Upload, BarChart3, Settings, AlertTriangle, LogOut } from 'lucide-react';
+import { Upload, BarChart3, Settings, AlertTriangle, LogOut, Activity } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Layout: React.FC = () => {
@@ -9,6 +9,7 @@ const Layout: React.FC = () => {
     const navItems = [
         { to: '/upload', icon: Upload, label: 'Upload Video' },
         { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+        { to: '/pollution', icon: Activity, label: 'Pollution Monitor' },
         { to: '/blacklist', icon: AlertTriangle, label: 'Blacklist' },
         { to: '/settings', icon: Settings, label: 'Settings' },
     ];
