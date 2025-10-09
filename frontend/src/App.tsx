@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import UploadVideo from './components/UploadVideo';
 import Analytics from './components/Analytics';
+import PollutionDashboard from './components/PollutionDashboard';
 import BlacklistManager from './components/BlacklistManager';
 import Settings from './components/Settings';
 import Login from './components/Login';
@@ -44,6 +45,11 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="upload" element={<UploadVideo />} />
               <Route path="analytics" element={<Analytics />} />
+              <Route path="pollution" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <PollutionDashboard />
+                </ProtectedRoute>
+              } />
               <Route path="blacklist" element={
                 <ProtectedRoute requireAdmin={true}>
                   <BlacklistManager />
